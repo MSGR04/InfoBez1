@@ -1,0 +1,138 @@
+name: CI Security Pipeline
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  tests:
+    name: Unit & security tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run pytest
+        run: pytest -v
+
+  sast-bandit:
+    name: SAST - Bandit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install Bandit
+        run: pip install bandit==1.9.4
+      - name: Run Bandit (HTML + JSON reports)
+        run: |
+          mkdir -p reports
+          bandit -r app run.py -f html -o reports/bandit.html --exit-zero
+          bandit -r app run.py -f json -o reports/bandit.json --exit-zero
+      - name: Bandit summary
+        run: |
+          {
+            echo "## SAST: Bandit report"
+            echo '```'
+            bandit -r app run.py --exit-zero
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Fail on Medium/High issues
+        run: bandit -r app run.py --severity-level medium --confidence-level medium
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: bandit-report
+          path: reports/
+
+  sca-pip-audit:
+    name: SCA - pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install pip-audit
+        run: pip install pip-audit==2.10.1
+      - name: Run pip-audit
+        run: |
+          mkdir -p reports
+          pip-audit -r requirements.txt --format json --output reports/pip-audit.json || true
+          {
+            echo "## SCA: pip-audit report (requirements.txt)"
+            pip-audit -r requirements.txt --format markdown --desc on 2>&1 || true
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Fail on known vulnerabilities
+        run: pip-audit -r requirements.txt --strict
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: pip-audit-report
+          path: reports/
+
+  sca-dependency-check:
+    name: SCA - OWASP Dependency-Check
+    runs-on: ubuntu-latest
+    # The NVD database download can be slow or rate-limited without an API key,
+    # so this job must not block the pipeline; pip-audit is the blocking SCA gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        env:
+          JAVA_HOME: /opt/jdk
+        with:
+          project: "secure-rest-api"
+          path: "."
+          format: "ALL"
+          out: "reports"
+          args: >-
+            --enableExperimental
+            --failOnCVSS 7
+            --exclude ".venv/**"
+            ${{ secrets.NVD_API_KEY != '' && format('--nvdApiKey {0}', secrets.NVD_API_KEY) || '' }}
+      - name: Dependency-Check summary
+        if: always()
+        run: |
+          {
+            echo "## SCA: OWASP Dependency-Check"
+            if [ -f reports/dependency-check-report.json ]; then
+              python3 - <<'PY'
+          import json
+          data = json.load(open("reports/dependency-check-report.json"))
+          deps = data.get("dependencies", [])
+          vulns = [(d["fileName"], v["name"], v.get("severity", "?"))
+                   for d in deps for v in d.get("vulnerabilities", [])]
+          print(f"Scanned dependencies: {len(deps)}  \nVulnerabilities found: {len(vulns)}\n")
+          if vulns:
+              print("| Dependency | CVE | Severity |\n|---|---|---|")
+              for f, n, s in vulns:
+                  print(f"| {f} | {n} | {s} |")
+          PY
+            else
+              echo "Report not generated (see job log)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: dependency-check-report
+          path: reports/
