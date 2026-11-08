@@ -1,11 +1,11 @@
 # Лабораторная работа 1. Защищённый REST API с интеграцией в CI/CD
 
-![CI](https://github.com/<USER>/<REPO>/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/MSGR04/InfoBez1/actions/workflows/ci.yml/badge.svg)
 
 Учебный backend на **Python 3.11 + Flask**: аутентификация по JWT, хранение данных в SQLite через ORM SQLAlchemy, защита от SQL-инъекций, XSS и атак на аутентификацию. При каждом `push` и `pull request` GitHub Actions прогоняет тесты, SAST (Bandit) и SCA (pip-audit, OWASP Dependency-Check).
 
-- Репозиторий: `https://github.com/<USER>/<REPO>`
-- Последний успешный pipeline: `https://github.com/<USER>/<REPO>/actions/runs/<RUN_ID>`
+- Репозиторий: `https://github.com/MSGR04/InfoBez1`
+- Последний успешный pipeline: `https://github.com/MSGR04/InfoBez1/actions/runs/42469793272`
 
 ## Содержание
 
@@ -52,9 +52,17 @@
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-export JWT_SECRET="длинная-случайная-строка"   # Windows PowerShell: $env:JWT_SECRET="..."
+export JWT_SECRET="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 python run.py                    # http://127.0.0.1:5000
 ```
+
+В Windows PowerShell секрет задаётся так:
+
+```powershell
+$env:JWT_SECRET = python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+`JWT_SECRET` должен быть не короче 32 байт, иначе приложение не запустится. Если переменную не задавать, при каждом старте генерируется случайный секрет.
 
 При первом запуске создаётся БД `instance/app.db` с демо-пользователями:
 
@@ -231,7 +239,13 @@ pytest -v
 
 ```bash
 python run.py          # терминал 1
-bash scripts/demo.sh   # терминал 2 (Git Bash на Windows)
+bash scripts/demo.sh   # терминал 2
+```
+
+На Windows скрипт нужно запускать через Git Bash, потому что `bash` из PowerShell обычно открывает WSL, откуда сервер на `127.0.0.1` недоступен:
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/demo.sh
 ```
 
 | # | Запрос | Ожидаемо |
