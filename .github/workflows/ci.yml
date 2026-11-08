@@ -90,8 +90,8 @@ jobs:
   sca-dependency-check:
     name: SCA - OWASP Dependency-Check
     runs-on: ubuntu-latest
-    # The NVD database download can be slow or rate-limited without an API key,
-    # so this job must not block the pipeline; pip-audit is the blocking SCA gate.
+    # Depends on the NVD snapshot bundled with the action, which changes outside
+    # this repo, so it must not block the pipeline; pip-audit is the blocking SCA gate.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
@@ -107,6 +107,7 @@ jobs:
           args: >-
             --enableExperimental
             --failOnCVSS 7
+            --suppression /github/workspace/dependency-check-suppressions.xml
             --exclude ".venv/**"
             ${{ secrets.NVD_API_KEY != '' && format('--nvdApiKey {0}', secrets.NVD_API_KEY) || '' }}
       - name: Dependency-Check summary

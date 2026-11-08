@@ -7,6 +7,8 @@ class Config:
     # Secret for signing JWTs. Must come from the environment in production;
     # a random per-process fallback keeps dev runs safe (tokens die on restart).
     JWT_SECRET = os.environ.get("JWT_SECRET") or secrets.token_hex(32)
+    # HS256 requires a key of at least 256 bits (RFC 7518, section 3.2).
+    JWT_SECRET_MIN_BYTES = 32
     JWT_ALGORITHM = "HS256"
     JWT_ISSUER = "secure-api-lab1"
     JWT_EXPIRES_MINUTES = int(os.environ.get("JWT_EXPIRES_MINUTES", "30"))

@@ -40,6 +40,10 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     if config_overrides:
         app.config.update(config_overrides)
 
+    # PyJWT does not enforce key length (CVE-2025-45770), so the app does.
+    if len(app.config["JWT_SECRET"].encode("utf-8")) < app.config["JWT_SECRET_MIN_BYTES"]:
+        raise RuntimeError("JWT_SECRET is too short: at least 32 bytes are required")
+
     db.init_app(app)
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)

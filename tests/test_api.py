@@ -44,6 +44,11 @@ def auth_headers(client):
 
 # ---------------------------------------------------------------- auth / JWT
 
+def test_short_jwt_secret_is_rejected_at_startup():
+    with pytest.raises(RuntimeError):
+        create_app({"JWT_SECRET": "too-short", "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+
+
 def test_login_success_returns_jwt(client):
     resp = login(client)
     assert resp.status_code == 200
