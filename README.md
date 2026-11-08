@@ -5,7 +5,7 @@
 Учебный backend на **Python 3.11 + Flask**: аутентификация по JWT, хранение данных в SQLite через ORM SQLAlchemy, защита от SQL-инъекций, XSS и атак на аутентификацию. При каждом `push` и `pull request` GitHub Actions прогоняет тесты, SAST (Bandit) и SCA (pip-audit, OWASP Dependency-Check).
 
 - Репозиторий: `https://github.com/MSGR04/InfoBez1`
-- Последний успешный pipeline: `https://github.com/MSGR04/InfoBez1/actions/runs/42469793272`
+- Последний успешный pipeline: `https://github.com/MSGR04/InfoBez1/actions/runs/42471127274`
 
 ## Содержание
 
